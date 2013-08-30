@@ -8,7 +8,6 @@ import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
 import org.apache.maven.plugin.logging.Log;
-import org.apache.maven.plugins.annotations.Execute;
 import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
@@ -19,8 +18,7 @@ import org.codehaus.plexus.util.DirectoryScanner;
  *
  * @author <a href="mailto:jperkins@redhat.com">James R. Perkins</a>
  */
-@Mojo(name = "transform", defaultPhase = LifecyclePhase.PROCESS_CLASSES)
-@Execute(phase = LifecyclePhase.PROCESS_CLASSES)
+@Mojo(name = "transform", defaultPhase = LifecyclePhase.PROCESS_TEST_CLASSES)
 public class TranslatorMojo extends AbstractMojo {
 
     /**
@@ -28,6 +26,12 @@ public class TranslatorMojo extends AbstractMojo {
      */
     @Parameter(defaultValue = "${project.build.outputDirectory}", required = true)
     private File outputDirectory;
+
+    /**
+     * The output directory where resources should be processed
+     */
+    @Parameter(defaultValue = "${project.build.testOutputDirectory}", required = true)
+    private File outputTestDirectory;
 
     /**
      * File patterns to include when processing
@@ -41,8 +45,17 @@ public class TranslatorMojo extends AbstractMojo {
     @Parameter(defaultValue = "**/*.class")
     private String[] includes;
 
+    /**
+     * Skips the transformation of all classes
+     */
     @Parameter(defaultValue = "false", property = "seven2six.transform.skip")
     private boolean skip;
+
+    /**
+     * Skips the transformation of test classes only
+     */
+    @Parameter(alias = "skip-tests", defaultValue = "false", property = "seven2six.transform.skip.tests")
+    private boolean skipTests;
 
     @Override
     public void execute() throws MojoExecutionException, MojoFailureException {
@@ -69,6 +82,17 @@ public class TranslatorMojo extends AbstractMojo {
 
     private File[] getFiles() {
         final List<File> result = new ArrayList<File>();
+        result.addAll(getFiles(outputDirectory));
+        if (skipTests) {
+            getLog().info("Skipping seven2six transform of test classes");
+        } else {
+            result.addAll(getFiles(outputTestDirectory));
+        }
+        return result.toArray(new File[result.size()]);
+    }
+
+    private List<File> getFiles(final File outputDirectory) {
+        final List<File> result = new ArrayList<File>();
         final DirectoryScanner scanner = new DirectoryScanner();
         scanner.setBasedir(outputDirectory);
         scanner.setIncludes(includes);
@@ -81,6 +105,6 @@ public class TranslatorMojo extends AbstractMojo {
                 result.add(targetFile.getAbsoluteFile());
             }
         }
-        return result.toArray(new File[result.size()]);
+        return result;
     }
 }
